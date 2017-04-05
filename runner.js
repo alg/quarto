@@ -56,8 +56,6 @@ var Board = function(width, height) {
   self.set = function(x, y, piece) {
     if (self.get(x, y)) throw new Error("Cell is already occupied");
     board[y * width + x] = piece;
-
-    console.log("\n" + self.toString() + "\n");
   }
 
   self.placeAndCheck = function(x, y, piece) {
@@ -92,7 +90,7 @@ var Board = function(width, height) {
       }
     }
 
-    console.log("HCODE=" + hcode.toString(16) + " VCODE=" + vcode.toString(16) + " DCODE=" + dcode.toString(16));
+    // console.log("HCODE=" + hcode.toString(16) + " VCODE=" + vcode.toString(16) + " DCODE=" + dcode.toString(16));
 
     var win = false;
     for (var i = 0; !win && i < 8; i++) {
@@ -208,7 +206,19 @@ var StateForPlayers = function(_state) {
 };
 
 
-function run(algo1, algo2) {
+function run(algo1, algo2, opts) {
+  opts = opts || {};
+
+  var winner = doRun(algo1, algo2, opts);
+  if (opts.onFinish) opts.onFinish(winner);
+
+  return winner;
+}
+
+function doRun(algo1, algo2, opts) {
+  opts = opts || {};
+  var onMove = opts.onMove || (function() {});
+
   var _state = new State();
   var state = new StateForPlayers(_state);
 
@@ -216,16 +226,14 @@ function run(algo1, algo2) {
   var opponent = player == algo1 ? algo2 : algo1;
   var piece = null;
 
+  if (opts.onStart) opts.onStart(player, opponent);
+
   try {
     do {
-      console.log("\n=== " + player.name + " ===================================\n");
-
       var move = player.makeMove(state, piece);
-
-      if (move.x != null) console.log(piece + " --> " + move.x + ":" + move.y);
-      if (move.pieceForOpponent != null) console.log(move.pieceForOpponent + " --> " + opponent.name);
-
       var won = _state.update(move, piece);
+
+      onMove(player, piece, move, _state.board);
 
       if (won) return player;
 
@@ -240,8 +248,6 @@ function run(algo1, algo2) {
   } catch (ex) {
     console.log(ex);
     return opponent;
-  } finally {
-    console.log("\n======================================\n");
   }
 }
 
@@ -281,5 +287,25 @@ var RandomAlgo = function(name) {
 var algo1 = new RandomAlgo("algo1");
 var algo2 = new RandomAlgo("algo2");
 
-var w = run(algo1, algo2);
-console.log("Winner: " + (w ? w.name : "Draw"));
+var w = run(algo1, algo2, {
+  // on game start
+  onStart: function(bot1, bot2) {
+    console.log("Game between " + bot1.name + " and " + bot2.name);
+  },
+
+  // on game finish. Winner or null if a draw
+  onFinish: function(winner) {
+    console.log("\n======================================\n");
+    console.log("Winner: " + (winner ? winner.name : "Draw"));
+  },
+
+  // on move
+  onMove: function(bot, piece, move, board) {
+    console.log("\n=== " + bot.name + " ===================================\n");
+
+    if (move.x != null) console.log(piece + " --> " + move.x + ":" + move.y);
+    if (move.pieceForOpponent != null) console.log(move.pieceForOpponent.toString());
+    console.log("\n" + board.toString());
+  }
+});
+
